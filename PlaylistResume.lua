@@ -26,19 +26,14 @@ function loadConfig()
 
 end
 function meta_changed()  
-    vlc.msg.info(tostring(getTimePassed()))
     local inpt = vlc.object.input()
     if inpt == nil then return end   -- just in case
     local stst = vlc.var.get(inpt, "state") -- 1=start 4=stop
-    local time = vlc.var.get(inpt,"time")
-    if savingFile~=nil then
+    if savingFile~=nil and stst == 4 then
         saveTableToFile(currentPlaylistToTable(), savingFile)
     end
 end
 
-function input_changed()
-    meta_changed()
-end
 
 function addCurrentPlaylist()
     local table = currentPlaylistToTable()
@@ -87,6 +82,7 @@ function loadPlaylist()
             vlc.playlist.enqueue({{path=v.path}})
         end
     end  
+    savingFile = name
 end
 
 
@@ -122,4 +118,11 @@ function activate()
     saveFolder = vlc.config.userdatadir()..sep.."PlayListResume"
     mkdir_p(saveFolder)
     loadGUI()
+end
+
+function desactivate()
+    if savingFile ~= nil then
+        saveTableToFile(currentPlaylistToTable(),savingFile)
+        savingFile = nil
+    end
 end
