@@ -22,6 +22,9 @@ GUI ={
         error = nil
     }
 }
+Config = {
+    back = 5
+}
 
 
 jsonFiles = {}
@@ -78,7 +81,7 @@ function loadPlaylist()
     local started = false
     for k,v in pairs(info.files) do
         if v.current and v.current == true then
-            vlc.playlist.add({{path=v.path,options={"start-time="..info.lastTime}}})
+            vlc.playlist.add({{path=v.path,options={"start-time="..math.max(0,info.lastTime-Config.back)}}})
             started = true
         else
             vlc.playlist.enqueue({{path=v.path}})
@@ -156,6 +159,7 @@ function activate()
     loadJsonFiles()
     debug(jsonFiles)
     loadGUI()
+    vlc.msg.info(debug(vlc.misc))
 end
 
 function desactivate()
@@ -172,7 +176,7 @@ function ends_with(str, ending)
     return ending == "" or str:sub(-#ending) == ending
  end
  
--- FILE FUNCTIONS - Need MS Windows functions, this onyl works in Linux
+-- FILE FUNCTIONS - Need MS Windows functions, this only works in Linux
 function mkdir_p(path)
     os.execute("mkdir -p '" .. path.."'")
 end

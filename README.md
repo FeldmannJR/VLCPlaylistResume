@@ -17,4 +17,4 @@ Na primeira vez que for usar é necessário adicionar os arquivos que quer que s
 
 Para carregar o seu progresso, ao abri ro vlc clique vá no menu do plugin e digite o nome que digitou para salvar e clique para dar load, ele vai dar play onde você estava.
 
-### Vai ter um dropdown menu pra selecionar os que tão salvos rlx
+[Video](https://www.youtube.com/watch?v=K4_bagnvx7)
