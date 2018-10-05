@@ -111,10 +111,9 @@ function mkdir_p(path)
 end
 
 function activate()
-    --Loading json api to save table in files
-
-    JSON = assert(loadfile "JSON.lua")()
     sep = package.config:sub(1,1);    
+    local jsonLoc = vlc.config.userdatadir()..sep.."lua"..sep.."extensions"..sep.."JSON.lua"
+    JSON = assert(loadfile(jsonLoc))()
     saveFolder = vlc.config.userdatadir()..sep.."PlayListResume"
     mkdir_p(saveFolder)
     loadGUI()
