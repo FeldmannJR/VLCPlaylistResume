@@ -14,12 +14,19 @@ function descriptor()
              capabilities = {"input-listener","meta-listener"}
 		    }
 end
+GUI ={
+    main = {
+        window = nil,        
+        fname = nil,
+        select = nil,
+        error = nil
+    }
+}
 
 
+jsonFiles = {}
 saveFolder = nil
 sep = nil
-JSON = nil
-nameW = nil
 savingFile = nil
 
 function loadConfig()
@@ -29,18 +36,9 @@ function meta_changed()
     local inpt = vlc.object.input()
     if inpt == nil then return end   -- just in case
     local stst = vlc.var.get(inpt, "state") -- 1=start 4=stop
-    if savingFile~=nil and stst == 4 then
+    if savingFile~=nil then
         saveTableToFile(currentPlaylistToTable(), savingFile)
     end
-end
-
-
-function addCurrentPlaylist()
-    local table = currentPlaylistToTable()
-    local saving = nameW:get_text()
-    savingFile = saving
-    saveTableToFile(table,saving)
-    nameW:set_text("")
 end
 
 
@@ -50,7 +48,7 @@ function currentPlaylistToTable()
     local currentId = vlc.playlist.current()
     for i, item in pairs(entries) do
         if currentId==item.id then
-           table.insert(info.files,{id=item.id,path=item.path,current=true})
+            table.insert(info.files,{id=item.id,path=item.path,current=true})
         else
             table.insert(info.files,{id=item.id,path=item.path})
         end
@@ -65,26 +63,46 @@ function getTimePassed()
 end
 
 function loadPlaylist()
-    local name = nameW:get_text()
+    local value = GUI.main.select:get_value()
+    local name = jsonFiles[value]
+    vlc.playlist.clear()
+    if name == nil then
+        error("File not found!")        
+        return
+    end
     local f = assert(io.open(saveFolder..sep..name..".json"))
     local cont = f:read("*all")
     f:close()
     local info = JSON:decode(cont)
-    vlc.playlist.clear()
     local lastPlayed = nil
-    
+    local started = false
     for k,v in pairs(info.files) do
-        vlc.playlist.enqueue({{path=v.path}})
         if v.current and v.current == true then
-            vlc.msg.info(info.lastTime)
             vlc.playlist.add({{path=v.path,options={"start-time="..info.lastTime}}})
+            started = true
         else
             vlc.playlist.enqueue({{path=v.path}})
         end
     end  
+    if not started then vlc.playlist.play() end
     savingFile = name
+    GUI.main.window:hide()
 end
 
+function msg(msg)
+    GUI.main.error:set_text(msg);
+end
+
+function saveCurrentPlaylist()
+    local table = currentPlaylistToTable()
+    local saving = GUI.main.fname:get_text()
+    savingFile = saving
+    saveTableToFile(table,saving)
+    GUI.main.fname:set_text("")
+    msg("Playlist salva!")
+    reloadPlaylists()
+
+end
 
 function saveTableToFile(table,file)
     local f = assert(io.open(saveFolder..sep..file..".json","w"))
@@ -93,22 +111,43 @@ function saveTableToFile(table,file)
     f:close()
 end
 
+function loadJsonFiles()
+    jsonFiles = {}
+    for k,v in pairs(scandir(saveFolder..sep)) do
+        if ends_with(v,".json") then
+            jsonFiles[k] = v:sub(0,-6)
+        end
+    end
+end
+
+function reloadPlaylists()
+    loadJsonFiles()
+    GUI.main.select:clear()
+    for k,v in pairs(jsonFiles) do
+        GUI.main.select:add_value(v,k)
+    end
+end
 
 function loadGUI()
     local d = vlc.dialog("Load show")
-    nameW = d:add_text_input("")
-    d:add_button("Adicionar Playlist",addCurrentPlaylist)
-    d:add_button("Load Playlist",loadPlaylist)
+    -- LOAD
+    d:add_button("Load Playlist",loadPlaylist,3,1,1)
+    GUI.main.select = d:add_dropdown(1,1,2)
+    reloadPlaylists()
+    -- SAVE
+    d:add_button("Save",saveCurrentPlaylist,3,2,1)
+    GUI.main.fname = d:add_text_input("",1,2,2)
+    GUI.main.error = d:add_label("",1,3,3)
     d:show()
+    GUI.main.window = d;
+
 end
 
 function debug(value)
     vlc.msg.info(JSON:encode(value))
 end
 
-function mkdir_p(path)
-    os.execute("mkdir -p '" .. path.."'")
-end
+
 
 function activate()
     sep = package.config:sub(1,1);    
@@ -116,6 +155,8 @@ function activate()
     JSON = assert(loadfile(jsonLoc))()
     saveFolder = vlc.config.userdatadir()..sep.."PlayListResume"
     mkdir_p(saveFolder)
+    loadJsonFiles()
+    debug(jsonFiles)
     loadGUI()
 end
 
@@ -124,4 +165,37 @@ function desactivate()
         saveTableToFile(currentPlaylistToTable(),savingFile)
         savingFile = nil
     end
+end
+
+
+-- Utils Functions
+
+function ends_with(str, ending)
+    return ending == "" or str:sub(-#ending) == ending
+ end
+ 
+-- FILE FUNCTIONS
+function mkdir_p(path)
+    os.execute("mkdir -p '" .. path.."'")
+end
+
+function scandir(dirname)
+    callit = os.tmpname()
+    os.execute("ls -1 "..dirname .. " >"..callit)
+    f = io.open(callit,"r")
+    rv = f:read("*all")
+    f:close()
+    os.remove(callit)
+
+    tabby = {}
+    local from = 1
+    local delim_from, delim_to = string.find( rv, "\n", from )
+    while delim_from do
+            table.insert( tabby, string.sub( rv, from , delim_from-1 ) )
+            from = delim_to + 1
+            delim_from, delim_to = string.find( rv, "\n", from )
+    end
+    -- table.insert( tabby, string.sub( rv, from  ) )
+    -- Comment out eliminates blank line on end!
+    return tabby
 end
