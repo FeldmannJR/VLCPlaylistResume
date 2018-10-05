@@ -9,7 +9,7 @@ function descriptor()
              version = "1.0" ;
              author = "Feldmann" ;
              url = 'http://github.com/FeldmannJR/';
-             shortdesc = "Save playlist location",
+             shortdesc = "Playlist Resume",
              description = "Save the current position in playlist, this is usefull for long shows when you can't remember where you stopped" ;
              capabilities = {"input-listener","meta-listener"}
 		    }
