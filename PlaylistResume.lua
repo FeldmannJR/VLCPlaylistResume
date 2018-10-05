@@ -147,8 +147,6 @@ function debug(value)
     vlc.msg.info(JSON:encode(value))
 end
 
-
-
 function activate()
     sep = package.config:sub(1,1);    
     local jsonLoc = vlc.config.userdatadir()..sep.."lua"..sep.."extensions"..sep.."JSON.lua"
@@ -174,7 +172,7 @@ function ends_with(str, ending)
     return ending == "" or str:sub(-#ending) == ending
  end
  
--- FILE FUNCTIONS
+-- FILE FUNCTIONS - Need MS Windows functions, this onyl works in Linux
 function mkdir_p(path)
     os.execute("mkdir -p '" .. path.."'")
 end
