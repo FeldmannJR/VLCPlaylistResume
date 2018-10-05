@@ -3,6 +3,7 @@
 -- Só to fazendo isso por que não to conseguindo lembrar onde parei de ver naruto
 -- Saca essa bosta de documentação https://www.videolan.org/developers/vlc/share/lua/README.txt GRRRRRRR
 
+
 function descriptor()
     return { title = "PlayelistSavePosition" ;
              version = "1.0" ;
@@ -18,29 +19,90 @@ end
 saveFolder = nil
 sep = nil
 JSON = nil
+nameW = nil
+savingFile = nil
 
 function loadConfig()
 
+end
+function meta_changed()  
+    vlc.msg.info(tostring(getTimePassed()))
+    local inpt = vlc.object.input()
+    if inpt == nil then return end   -- just in case
+    local stst = vlc.var.get(inpt, "state") -- 1=start 4=stop
+    local time = vlc.var.get(inpt,"time")
+    if savingFile~=nil then
+        saveTableToFile(currentPlaylistToTable(), savingFile)
+    end
+end
 
+function input_changed()
+    meta_changed()
+end
+
+function addCurrentPlaylist()
+    local table = currentPlaylistToTable()
+    local saving = nameW:get_text()
+    savingFile = saving
+    saveTableToFile(table,saving)
+    nameW:set_text("")
 end
 
 
-function addCurrentPlaylist()
+function currentPlaylistToTable()
     local entries = vlc.playlist.get("playlist").children
-    vlc.msg.info(tostring(#entries))
     local info = {files = {}}
+    local currentId = vlc.playlist.current()
     for i, item in pairs(entries) do
-        table.insert(info.files,{id=item.id,path=item.path})
+        if currentId==item.id then
+           table.insert(info.files,{id=item.id,path=item.path,current=true})
+        else
+            table.insert(info.files,{id=item.id,path=item.path})
+        end
     end
-    table.insert(info, (lastPlayed))
-    vlc.msg.info(vlc.playlist.current()..JSON:encode_pretty(info))
+    info.lastTime=getTimePassed()
+    vlc.msg.info(tostring(info.lastTime))
+    return info
+end
+
+function getTimePassed()
+    return math.floor(vlc.var.get(vlc.object.input(), "time")/1000000)
+end
+
+function loadPlaylist()
+    local name = nameW:get_text()
+    local f = assert(io.open(saveFolder..sep..name..".json"))
+    local cont = f:read("*all")
+    f:close()
+    local info = JSON:decode(cont)
+    vlc.playlist.clear()
+    local lastPlayed = nil
     
+    for k,v in pairs(info.files) do
+        vlc.playlist.enqueue({{path=v.path}})
+        if v.current and v.current == true then
+            vlc.msg.info(info.lastTime)
+            vlc.playlist.add({{path=v.path,options={"start-time="..info.lastTime}}})
+        else
+            vlc.playlist.enqueue({{path=v.path}})
+        end
+    end  
+end
+
+
+function saveTableToFile(table,file)
+    local f = assert(io.open(saveFolder..sep..file..".json","w"))
+    f:write(JSON:encode_pretty(table))
+    f:flush()
+    f:close()
 end
 
 
 function loadGUI()
     local d = vlc.dialog("Load show")
+    nameW = d:add_text_input("")
     d:add_button("Adicionar Playlist",addCurrentPlaylist)
+    d:add_button("Load Playlist",loadPlaylist)
     d:show()
 end
 
@@ -48,10 +110,16 @@ function debug(value)
     vlc.msg.info(JSON:encode(value))
 end
 
+function mkdir_p(path)
+    os.execute("mkdir -p '" .. path.."'")
+end
+
 function activate()
     --Loading json api to save table in files
+
     JSON = assert(loadfile "JSON.lua")()
     sep = package.config:sub(1,1);    
-    saveFolder = vlc.config.userdatadir()
+    saveFolder = vlc.config.userdatadir()..sep.."PlayListResume"
+    mkdir_p(saveFolder)
     loadGUI()
 end
